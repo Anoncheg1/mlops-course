@@ -1,0 +1,161 @@
+;-*- mode: Org; fill-column: 110;-*-
+slack: https://app.slack.com/client/T01ATQK62F8/C02R98X7DS9
+
+homework: https://courses.datatalks.club/mlops-zoomcamp-2024/
+- https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/cohorts/2024/01-intro/homework.md
+
+course: https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/01-intro
+
+* intro
+
+** 1) Download the data for January and February 2023. Read the data for January. How many columns are there?
+https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+requirements.txt:
+- pandas==2.2.2
+- pyarrow==16.1.0
+- fastparquet==2024.2.0
+
+: import pandas as pd
+: df = pd.read_parquet("yellow_tripdata_2023-01.parquet")
+: print(len(df.columns))
+19
+
+** 2) Computing duration
+
+Now let's compute the duration variable. It should contain the duration of a ride in minutes.
+What's the standard deviation of the trips duration in January?
+
+#+begin_src python :tangle /tmp/out.py :results none :exports code :eval no
+df.tpep_dropoff_datetime = pd.to_datetime(df.tpep_dropoff_datetime)
+df.tpep_pickup_datetime = pd.to_datetime(df.tpep_pickup_datetime)
+
+df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+df.duration = df.duration.apply(lambda td:td.total_seconds() /60)
+#+end_src
+
+42.59
+** 3) Dropping outliers
+Next, we need to check the distribution of the duration variable. There are some outliers. Let's remove them and keep only the records where the duration was between 1 and 60 minutes (inclusive).
+What fraction of the records left after you dropped the outliers?
+
+#+begin_src python :tangle /tmp/out.py :results none :exports code :eval no
+print(df.shape())
+df = df[(df.duration >=1) & (df.duration <=60)]
+print(df.shape())
+#+end_src
+3009173/3066766 = 0.98122
+
+98%
+
+
+** 4) One-hot encoding
+Let's apply one-hot encoding to the pickup and dropoff location IDs. We'll use only these two features for our model.
+
+    Turn the dataframe into a list of dictionaries (remember to re-cast the ids to strings - otherwise it will label encode them)
+    Fit a dictionary vectorizer
+    Get a feature matrix from it
+
+What's the dimensionality of this matrix (number of columns)?
+
+
+#+begin_src python :tangle /tmp/out.py :results none :exports code :eval no
+import pandas as pd
+# Press the green button in the gutter to run the script.
+df = pd.read_parquet("./yellow_tripdata_2023-01.parquet")
+print(df.head())
+print(df.columns)
+df.tpep_dropoff_datetime = pd.to_datetime(df.tpep_dropoff_datetime)
+df.tpep_pickup_datetime = pd.to_datetime(df.tpep_pickup_datetime)
+
+df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+df.duration = df.duration.apply(lambda td:td.total_seconds() /60)
+print("df.shape", df.shape)
+
+df = df[(df.duration >=1) & (df.duration <=60)]
+print("df.shape", df.shape)
+
+categorical = ['PULocationID', 'DOLocationID']
+df[categorical] = df[categorical].astype(str)
+# df['PU_DO'] = df['PULocationID'] + '_' + df['DOLocationID']
+# categorical = ['PU_DO']
+numerical = ['trip_distance']
+dicts = df[categorical + numerical].to_dict(orient='records')
+
+from sklearn.feature_extraction import DictVectorizer
+vec = DictVectorizer()
+X_train = vec.fit_transform(dicts)
+X_train
+#+end_src
+<3009173x516 sparse matrix of type '<class 'numpy.float64'>'
+	with 9027519 stored elements in Compressed Sparse Row format>
+
+* 5) Training a model
+
+Now let's use the feature matrix from the previous step to train a model.
+
+    Train a plain linear regression model with default parameters
+    Calculate the RMSE of the model on the training data
+
+What's the RMSE on train?
+
+#+begin_src python :tangle /tmp/out.py :results none :exports code :eval no
+target = 'duration'
+y_train = df[target].values
+
+from sklearn.linear_model import LinearRegression
+lr = LinearRegression()
+
+lr = lr.fit(X_train, y_train)
+y_pred = lr.predict(X_train)
+
+# sns.distplot(y_pred, label='prediction')
+# sns.distplot(y_train, label='actual')
+# plt.legend()
+
+from sklearn.metrics import mean_squared_error
+
+mean_squared_error(y_train, y_pred, squared=False)
+
+#+end_src
+
+7.658396898909143
+
+** 6. Evaluating the model
+
+Now let's apply this model to the validation dataset (February 2023).
+
+What's the RMSE on validation?
+
+#+begin_src python :tangle /tmp/out.py :results none :exports code :eval no
+df = pd.read_parquet("./yellow_tripdata_2023-02.parquet")
+
+df.tpep_dropoff_datetime = pd.to_datetime(df.tpep_dropoff_datetime)
+df.tpep_pickup_datetime = pd.to_datetime(df.tpep_pickup_datetime)
+
+df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+df.duration = df.duration.apply(lambda td:td.total_seconds() /60)
+print("df.shape", df.shape)
+
+df = df[(df.duration >=1) & (df.duration <=60)]
+print("df.shape", df.shape)
+
+categorical = ['PULocationID', 'DOLocationID']
+df[categorical] = df[categorical].astype(str)
+# df['PU_DO'] = df['PULocationID'] + '_' + df['DOLocationID']
+# categorical = ['PU_DO']
+numerical = ['trip_distance']
+dicts = df[categorical + numerical].to_dict(orient='records')
+
+from sklearn.feature_extraction import DictVectorizer
+vec = DictVectorizer()
+X_test = vec.fit_transform(dicts)
+
+target = 'duration'
+y_test = df[target].values
+
+y_pred = lr.predict(X_test)
+print(mean_squared_error(y_test, y_pred, squared=False))
+#+end_src
+
+7.820263388747155
