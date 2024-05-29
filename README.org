@@ -83,7 +83,7 @@ X_train
 <3009173x516 sparse matrix of type '<class 'numpy.float64'>'
 	with 9027519 stored elements in Compressed Sparse Row format>
 
-* 5) Training a model
+** 5) Training a model
 
 Now let's use the feature matrix from the previous step to train a model.
 
@@ -114,7 +114,7 @@ mean_squared_error(y_train, y_pred, squared=False)
 
 7.658396898909143
 
-** 6. Evaluating the model
+** 6) Evaluating the model
 
 Now let's apply this model to the validation dataset (February 2023).
 
@@ -152,3 +152,144 @@ print(mean_squared_error(y_test, y_pred, squared=False))
 #+end_src
 
 7.820263388747155
+* Homework 2: Experiment Tracking
+links
+- https://courses.datatalks.club/mlops-zoomcamp-2024/homework/hw2
+- https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/cohorts/2024/02-experiment-tracking/homework.md
+
+Code: [[file:./2-mlflow]]
+** 1) Install MLflow
+: /Volumes/vol2/proj-py/venv/bin/mlflow --version
+: mlflow, version 2.13.0
+** 2) Download and preprocess the data
+Click - to build CLI scripts
+- https://pypi.org/project/click/
+- https://github.com/pallets/click
+- https://click.palletsprojects.com/en/8.1.x/
+
+python preprocess_data.py --raw_data_path <TAXI_DATA_FOLDER> --dest_path ./output
+
+[[file:/ssh:ma:2/preprocess_data.py]]
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+cd 2/
+source /Volumes/vol2/proj-py/venv/bin/activate
+/Volumes/vol2/proj-py/venv/bin/python preprocess_data.py
+#+end_src
+
+#+RESULTS:
+
+4
+** 3) Train a model with autolog
+
+train.py
+
+min_samples_split parameter?
+2
+
+[[file:/ssh:ma:2/train.py]]
+Install:
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+: /Volumes/vol2/proxychains-ng-master/proxychains4 /Volumes/vol2/proj-py/venv/bin/python -m pip install mlflow --prefix=/Volumes/vol2/proj-py/venv
+#+end_src
+
+#+begin_src elisp :results output :exports both
+(python-repl-remote "ma" "/Volumes/vol2/proj-py/venv")
+#+end_src
+
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+cd 2/
+source /Volumes/vol2/proj-py/venv/bin/activate
+/Volumes/vol2/proj-py/venv/bin/python train.py
+#+end_src
+
+in *train.py* code:
+: import mlflow
+: mlflow.autolog()
+
+** 4) Launch the tracking server locally
+- launch the tracking server on your local machine
+- select a SQLite db for the backend store and a folder called artifacts for the artifacts store.
+
+[[file:/ssh:ma:2/train.py]]
+
+: export MLFLOW_TRACKING_URI=sqlite:///mlruns.db
+: mlflow ui --port 5000 --backend-store-uri $MLFLOW_TRACKING_URI --default-artifact-root "./artifacts"
+
+in *train.py* code:
+: import mlflow
+: mlflow.set_tracking_uri("http://localhost:5000")
+: mlflow.autolog()
+
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+cd 2/
+source /Volumes/vol2/proj-py/venv/bin/activate
+/Volumes/vol2/proj-py/venv/bin/python train.py
+#+end_src
+
+
+default-artifact-root
+** 5) Tune model hyperparameters
+make sure that the validation RMSE is logged to the tracking server for each run of the hyperparameter
+ optimization optimization (you will need to add a few lines of code to the *objective* function)
+
+hpo.py
+[[file:/ssh:ma:2/hpo.py]]
+
+pip install hyperopt
+
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+: /Volumes/vol2/proxychains-ng-master/proxychains4 /Volumes/vol2/proj-py/venv/bin/python -m pip install hyperopt --prefix=/Volumes/vol2/proj-py/venv
+#+end_src
+
+in *hpo.py* code:
+#+begin_src python :results none :exports code :eval no
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("random-forest-hyperopt")
+mlflow.autolog()
+with mlflow.start_run(nested=True):
+    mlflow.log_param("p", params)
+    mlflow.log_metric(key="mean_squared_error", value=rmse)
+#+end_src
+
+Run
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+cd 2/
+source /Volumes/vol2/proj-py/venv/bin/activate
+/Volumes/vol2/proj-py/venv/bin/python hpo.py
+#+end_src
+
+
+What's the best validation RMSE that you got?
+- 5.335
+** 6) Promote the best model to the model registry
+register_model.py [[file:/ssh:ma:2/register_model.py]]
+
+search_runs from the MlflowClient to get the model with the lowest RMSE,
+
+mlflow.register_model and you will need to pass the right model_uri in the form of a string that looks like this: "runs:/<RUN_ID>/model", and the name of the model (make sure to choose a good one!).
+
+https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/02-experiment-tracking/model-registry.ipynb
+
+register_model.py:
+#+begin_src python :results none :exports code :eval no
+order_by=["metrics.mean_squared_error ASC"]
+
+train_and_log_model(data_path=data_path, params=run.data.params['p'])
+
+best_run = MlflowClient().search_runs(
+    experiment_ids=experiment.experiment_id,
+    run_view_type=ViewType.ACTIVE_ONLY,
+    max_results=1,
+    order_by=["metrics.test_rmse ASC"],
+)[0]
+
+print(f"run id: {best_run.info.run_id}, rmse: {best_run.data.metrics['rmse']:.4f}")
+#+end_src
+
+#+begin_src bash :results output :exports both :dir /ssh:ma:
+cd 2/
+source /Volumes/vol2/proj-py/venv/bin/activate
+/Volumes/vol2/proj-py/venv/bin/python register_model.py
+#+end_src
+
+5.567

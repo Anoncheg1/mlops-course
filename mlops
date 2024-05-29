@@ -121,7 +121,7 @@ mean_squared_error(y_train, y_pred, squared=False)
 
 7.658396898909143
 
-** 6. Evaluating the model
+** 6) Evaluating the model
 
 Now let's apply this model to the validation dataset (February 2023).
 
