@@ -1,0 +1,56 @@
+#+begin_src python :results output :exports both :session s1
+!pip freeze | grep scikit-learn
+#+end_src
+
+#+RESULTS:
+: scikit-learn==1.5.0
+
+
+#+begin_src python :results output :exports both :session s1
+!python -V
+#+end_src
+
+#+RESULTS:
+: Python 3.10.13
+
+
+#+begin_src python :results output :exports both :session s1
+import pickle
+import pandas as pd
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+with open('model.bin', 'rb') as f_in:
+    dv, model = pickle.load(f_in)
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+categorical = ['PULocationID', 'DOLocationID']
+
+def read_data(filename):
+    df = pd.read_parquet(filename)
+    
+    df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+    df['duration'] = df.duration.dt.total_seconds() / 60
+
+    df = df[(df.duration >= 1) & (df.duration <= 60)].copy()
+
+    df[categorical] = df[categorical].fillna(-1).astype('int').astype('str')
+    
+    return df
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+df = read_data('https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_????-??.parquet')
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+dicts = df[categorical].to_dict(orient='records')
+X_val = dv.transform(dicts)
+y_pred = model.predict(X_val)
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+
+#+end_src
+

@@ -1,4 +1,13 @@
 ;-*- mode: Org; fill-column: 110;-*-
+
+slack: https://app.slack.com/client/T01ATQK62F8/C02R98X7DS9
+
+homework: https://courses.datatalks.club/mlops-zoomcamp-2024/
+- https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/cohorts/2024/01-intro/homework.md
+
+course: https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/01-intro
+
+book https://github.com/alexeygrigorev/mlbookcamp-code
 * intro
 
 ** 1) Download the data for January and February 2023. Read the data for January. How many columns are there?
@@ -293,3 +302,200 @@ source /Volumes/vol2/proj-py/venv/bin/activate
 #+end_src
 
 5.567
+* TODO Homework 3: Training Pipelines
+https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/03-orchestration
+
+- ML Pipeline: introduction
+- Prefect
+- Turning a notebook into a pipeline
+- Kubeflow Pipeline
+
+* 4: Deployment
+https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/README.md
+** 4.1 Three ways of deploying a model
+- Batch vs Online
+- For online: web services vs streaming
+- Serving models in Batch mode
+- Web services
+- streaming (Kinesis/SQS + AWS Lambda)
+
+Steps:
+- Design: collect requirements + choose right solution
+- Training mode: experiment tracking, training pipeline
+- Operate face: deployment
+  - Batch or offline - if prediction is not required immediately (apply model to data regulaterly)
+  - Online - always available
+    - Web service
+    - Streaming - listening for events in the stream - queue + parallel listening models.
+
+DB - > scoring job(model) -> DB Predictions -> Diagrams
+
+** 4.2 Web-services: Deploying models with Flask and Docker
+code: https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/web-service
+
+pipenv install scikit-learn==1.0.2 flask --python=3.9
+
+Docker:
+#+begin_src dockerfile
+FROM python:3.9.7-slim
+
+RUN pip install -U pip
+RUN pip install pipenv
+
+WORKDIR /app
+
+COPY [ "Pipfile", "Pipfile.lock", "./" ]
+
+RUN pipenv install --system --deploy
+
+COPY [ "predict.py", "lin_reg.bin", "./" ]
+
+EXPOSE 9696
+
+ENTRYPOINT [ "gunicorn", "--bind=0.0.0.0:9696", "predict:app" ]
+#+end_src
+
+: docker build -t ride-duration-prediction-service:v1 .
+
+: docker run -it --rm -p 9696:9696  ride-duration-prediction-service:v1
+** 4.3 Web-services: Getting the models from the model registry (MLflow)
+code: https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/web-service-mlflow
+
+*** Download from python (local)
+#+begin_src python :results output :exports both :session s1
+from mlflow.tracking import MlflowClient
+MLFLOW_TRACKING_URI = 'http://127.0.0.1:5000'
+RUN_ID = 'b4d3bca8aa8e46a6b8257fe4541b1136'
+
+client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
+
+path = client.download_artifacts(run_id=RUN_ID, path='dict_vectorizer.bin')
+
+# print
+with open(path, 'rb') as f_out:
+    dv = pickle.load(f_out)
+#+end_src
+
+*** Download from Python (deployed)
+#+begin_src python :results none :exports code :eval no
+
+
+RUN_ID = os.getenv('RUN_ID')
+logged_model = f's3://mlflow-models-alexey/1/{RUN_ID}/artifacts/model'
+# logged_model = f'runs:/{RUN_ID}/model'
+model = mlflow.pyfunc.load_model(logged_model)
+#+end_src
+
+*** Download From shell
+#+begin_src bash :eval no :exports code :results none
+export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
+export MODEL_RUN_ID="6dd459b11b4e48dc862f4e1019d166f6"
+
+mlflow artifacts download \
+    --run-id ${MODEL_RUN_ID} \
+    --artifact-path model \
+    --dst-path .
+#+end_src
+** 4.4 (Optional) Streaming: Deploying models with Kinesis and Lambda
+code: https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/streaming
+
+Amazon Lambda with Amazon Kinesis https://docs.amazonaws.cn/en_us/lambda/latest/dg/with-kinesis-example.html
+- Creating the role (AWS)
+- Create a Lambda function, test it (AWS service - piece of code)
+- Create a Kinesis stream
+- Connect the function to the stream
+- Send the recordsk
+
+
+require: *Boto3* is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, https://pypi.org/project/boto3/
+- https://github.com/boto/boto3.git
+- uses:
+  - aws_access_key_id = YOUR_KEY
+  - aws_secret_access_key = YOUR_SECRET
+*** model loading
+#+begin_src python :results none :exports code :eval no
+import mlflow
+logged_model = f's3://mlflow-models-alexey/1/{RUN_ID}/artifacts/model'
+# logged_model = f'runs:/{RUN_ID}/model'
+model = mlflow.pyfunc.load_model(logged_model)
+#+end_src
+*** sending data
+#+begin_src bash :eval no :exports code :results none
+KINESIS_STREAM_INPUT=ride_events
+aws kinesis put-record \
+    --stream-name ${KINESIS_STREAM_INPUT} \
+    --partition-key 1 \
+    --data "Hello, this is a test."
+#+end_src
+*** receiving
+#+begin_src bash :eval no :exports code :results none
+KINESIS_STREAM_OUTPUT='ride_predictions'
+SHARD='shardId-000000000000'
+
+SHARD_ITERATOR=$(aws kinesis \
+    get-shard-iterator \
+        --shard-id ${SHARD} \
+        --shard-iterator-type TRIM_HORIZON \
+        --stream-name ${KINESIS_STREAM_OUTPUT} \
+        --query 'ShardIterator' \
+)
+
+RESULT=$(aws kinesis get-records --shard-iterator $SHARD_ITERATOR)
+
+echo ${RESULT} | jq -r '.Records[0].Data' | base64 --decode
+#+end_src
+** 4.5 Batch: Preparing a scoring script
+Code: https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/batch
+
+steps
+- Turn the notebook for training a model into a notebook for applying the model
+- Turn the notebook into a script
+- Clean it and parametrize
+
+tools:
+- mlflow - used for model loading
+- prefect
+** TODO 4.6 MLOps Zoomcamp 4.6 - Batch scoring with Mage
+* Homework 4: Deployment
+Yellow Taxi Trip Records dataset
+
+
+starter.ipynb - run for March 2023
+
+[[file:/home/u/sources/mlops-zoomcamp/cohorts/2024/04-deployment/homework.md]]
+** 1. What's the standard deviation of the predicted duration for this dataset?
+Download: March 2023 Yellow Taxi https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+: !pip install pandas pyarrow==16.1.0 fastparquet==2024.2.0 scikit-learn==1.5.0 --user
+
+6.24
+
+** 2. Preparing the output. What's the size of the output file?
+
+65.5 MB = 66M
+
+** 3. Creating the scoring script. Which command you need to execute for that?
+!.local/bin/jupyter nbconvert --to python Untitled.ipynb
+** 4. Virtual environment. Hash for Scikit-Learn
+
+057b991ac64b3e75c9c04b5f9395eaf19a6179244c089afdebaad98264bff37c
+
+** 5. Parametrize the script
+April 2023.
+
+What's the mean predicted duration?
+
+14.29
+
+** 6. Docker container
+#+begin_src dockerfile
+FROM agrigorev/zoomcamp-model:mlops-2024-3.10.13-slim
+RUN pip install pandas pyarrow==16.1.0 fastparquet==2024.2.0 scikit-learn==1.5.\
+0
+COPY Untitled.py ./
+COPY yellow_tripdata_2023-05.parquet ./
+ENTRYPOINT ["python3", "Untitled.py"]
+#+end_src
+
+
+0.19
