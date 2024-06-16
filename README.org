@@ -312,6 +312,8 @@ https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/03-orchestration
 
 * 4: Deployment
 https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/README.md
+
+Homework: [[file:./4-depl/README_homework.org]]
 ** 4.1 Three ways of deploying a model
 - Batch vs Online
 - For online: web services vs streaming
@@ -456,46 +458,3 @@ tools:
 - mlflow - used for model loading
 - prefect
 ** TODO 4.6 MLOps Zoomcamp 4.6 - Batch scoring with Mage
-* Homework 4: Deployment
-Yellow Taxi Trip Records dataset
-
-
-starter.ipynb - run for March 2023
-
-[[file:/home/u/sources/mlops-zoomcamp/cohorts/2024/04-deployment/homework.md]]
-** 1. What's the standard deviation of the predicted duration for this dataset?
-Download: March 2023 Yellow Taxi https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
-
-: !pip install pandas pyarrow==16.1.0 fastparquet==2024.2.0 scikit-learn==1.5.0 --user
-
-6.24
-
-** 2. Preparing the output. What's the size of the output file?
-
-65.5 MB = 66M
-
-** 3. Creating the scoring script. Which command you need to execute for that?
-!.local/bin/jupyter nbconvert --to python Untitled.ipynb
-** 4. Virtual environment. Hash for Scikit-Learn
-
-057b991ac64b3e75c9c04b5f9395eaf19a6179244c089afdebaad98264bff37c
-
-** 5. Parametrize the script
-April 2023.
-
-What's the mean predicted duration?
-
-14.29
-
-** 6. Docker container
-#+begin_src dockerfile
-FROM agrigorev/zoomcamp-model:mlops-2024-3.10.13-slim
-RUN pip install pandas pyarrow==16.1.0 fastparquet==2024.2.0 scikit-learn==1.5.\
-0
-COPY Untitled.py ./
-COPY yellow_tripdata_2023-05.parquet ./
-ENTRYPOINT ["python3", "Untitled.py"]
-#+end_src
-
-
-0.19
