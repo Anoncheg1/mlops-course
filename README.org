@@ -161,12 +161,34 @@ print(mean_squared_error(y_test, y_pred, squared=False))
 #+end_src
 
 7.820263388747155
+* 2: Experiment Tracking
+terms:
+- ML experiment ::
+- run :: trial in a ML experiment
+- run artifact :: any file of ML experiment
+- experiment metadata :: info
+
+Experiment Tracking For:
+- reproducibility
+- organization - automation, collaboration, monitoring
+- optimization
+- collaboration - visibility of DS efforts
+
+** ml lifecycle
+#+ATTR_HTML: :width 700px
+[[file:./2-mlflow-exerims/imgs/ml-lifecycle.png]]
+
+#+ATTR_HTML: :width 700px
+[[https://i0.wp.com/neptune.ai/wp-content/uploads/2023/10/Experiment-tracking.png?resize=1020%2C534&ssl=1]]
+** links
+Slides: [[file:./2-mlflow-exerims/Experiment Tracking - MLOps Zoomcamp.pdf]]
+
 * Homework 2: Experiment Tracking
 links
 - https://courses.datatalks.club/mlops-zoomcamp-2024/homework/hw2
 - https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/cohorts/2024/02-experiment-tracking/homework.md
 
-Code: [[file:./2-mlflow]]
+Code: [[file:./2-mlflow-exerims/homework]]
 ** 1) Install MLflow
 : /Volumes/vol2/proj-py/venv/bin/mlflow --version
 : mlflow, version 2.13.0
@@ -302,6 +324,109 @@ source /Volumes/vol2/proj-py/venv/bin/activate
 #+end_src
 
 5.567
+* 3: Orchestration
+https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/03-orchestration
+
+Code https://github.com/mage-ai/mlops
+- docker-compose with mage
+- mlflow https://github.com/mage-ai/mlops/pull/6/files
+- fork with Mlflow https://github.com/osareniho-oni/mlops-zoomcamp-mage
+
+*Operationalizing ML models* - moving them from development to production
+1. optimizing performance, ensuring it handles real-world data, and packaging it for integration into existing systems.
+2. moving it from development to production, making it accessible to users and applications.
+3. Once deployed, models must be continuously monitored for accuracy and reliability, and may need retraining on new data and updates to maintain effectiveness.
+4. model must be integrated into existing workflows, applications, and decision-making processes to drive business impact.
+
+** For:
+- Productivity :: collaboration - unified environment
+- Reliability :: with clean datasets, proper testing, validation, CI/CD practices, monitoring, and governance.
+- Reproducibility :: with versioning datasets, code, and models - transparency and auditability
+- Time-to-value :: deploy more projects and derive tangible business value and ROI from AI/ML investments
+
+** tools:
+- Airflow
+- Prefect https://www.prefect.io/ (Much of Prefect's functionality is backed by an API https://app.prefect.cloud/)
+- Mage - https://www.mage.ai/
+
+devops:
+- Terraform
+- Ansible - configure
+
+** best practices (Mage):
+- every block in your data pipeline is a standalone file.
+- Data validation is written into each block and tested every time a block is run.
+- built-in observability, data quality monitoring, and lineage.
+- Each block of code has a single responsibility: load data from a source, transform data, or export data anywhere.
+- Data is a first class citizen
+
+Scaling:
+- Spark
+- Handle data intensive transformations with built-in distributed computing (e.g. Dask, Ray)
+- Run thousands of pipelines simultaneously and manage transparently through a collaborative UI.
+- Execute SQL queries in your data warehouse to process heavy workloads.
+- streaming - Kafka
+
+** *Ansible* - /Terraform/
+- Type
+  - *Configuration management tool*
+    - /Orchestration tool/
+- Syntax - *YAML* /HCL/
+- Language - *Procedural* /Declarative/
+- Default approach
+  - *Immutable infrastructure*
+    - /Mutable infrastructure/
+- Cloud support - *All clouds* /All clouds/
+- Lifecycle (state) management
+  - *Does not support*
+    - /Depends on the lifecycle and state management/
+- Packaging and templating
+  - *Provides complete support*
+    - /Provides partial support/
+- Capabilities
+  - *Provisioning and configuring*
+    - Provisioning and configuring
+- Agentless *Yes* /Yes/ - *SSH* /Providers API and SSH/
+- Masterless *Yes* /Yes/ - “state” information not require server.
+- License - *Open Source* /Business Source License (BUSL)/
+- Writen in - *Python, shell* /Go/
+- Configuration language - *YAML and Jinja templates* /HashiCorp Configuration Language (HCL)/
+
+Orchestration tools ensure that an environment is in its desired state continuously.
+
+Terraform state files - log  information about the resources.
+- to compare infrastructure to the code and make any adjustments as necessary.
+
+OpenTofu is an open-source version of Terraform
+
+Configuration files (\*.tf) -> Terraform Core -> State files (\*.tfstate)
+
+Playbook, Inventory -> Ansible Management Node -> SSH to machines
+- Inventory:  IP addresses, databases, servers, and other details.
+- Playbook: set of Plays - a set of tasks to run on a specific host or group of hosts.
+
+Terraform - more user-fiendly, good scheduling capabilities.
+
+Ansible - better security and ACL functionality.
+
+Ansible bad with logical dependencies, orchestration services, and interconnected applications.
+
+Terraform :
+- infrastructure provisioning
+- managing cloud resources
+- implementing infrastructure changes
+- enabling infrastructure as code practices.
+
+Ansible :
+- configuration management
+- application deployment
+- continuous delivery
+- server provisioning
+- automating repetitive system administration tasks.
+
+Configuration Drift - difference between the desired and actual state of your configuration.
+- Ansible relies on idempotent tasks and continuous execution without maintaining a persistent state of the infrastructure.
+- Terraform relies on a stored state to detect and manage drift, emphasizing a declarative approach to infrastructure as code.
 * TODO Homework 3: Training Pipelines
 https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/03-orchestration
 
@@ -319,7 +444,7 @@ Homework: [[file:./4-depl/README_homework.org]]
 - For online: web services vs streaming
 - Serving models in Batch mode
 - Web services
-- streaming (Kinesis/SQS + AWS Lambda)
+- streaming (AWS Kinesis/SQS + AWS Lambda)
 
 Steps:
 - Design: collect requirements + choose right solution
