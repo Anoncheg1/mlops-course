@@ -440,11 +440,14 @@ https://github.com/DataTalksClub/mlops-zoomcamp/blob/main/04-deployment/README.m
 
 Homework: [[file:./4-depl/README_homework.org]]
 ** 4.1 Three ways of deploying a model
-- Batch vs Online
-- For online: web services vs streaming
-- Serving models in Batch mode
-- Web services
-- streaming (AWS Kinesis/SQS + AWS Lambda)
+Deployment Types:
+- Batch (offline) - prediction made at night at big dataset (most stupid)
+- Online serving - prediction made on new data
+  - web services - forecasting(hourly, daily, monthly) - 1 client -> 1 model
+  - streaming - 1 client -> stream -> N models
+- Online serving + learning
+
+streaming (AWS Kinesis/SQS + AWS Lambda)
 
 Steps:
 - Design: collect requirements + choose right solution
@@ -583,3 +586,84 @@ tools:
 - mlflow - used for model loading
 - prefect
 ** TODO 4.6 MLOps Zoomcamp 4.6 - Batch scoring with Mage
+* 5: Monitoring
+tools:
+- simple: Prometheus/Grafana
+- ML-focused Dashboards: MongoDB/Grafana, BI tools, Looker
+
+
+: conda create -n py11 python=3.11
+: conda activate py11
+
+requirements.txt
+#+begin_src text
+prefect # pipeline orchistration
+tqdm
+requests
+joblib # shugar: 1. disk-caching 2. parallel helper 3. save and load python objects
+pyarrow
+psycopg # PostgreSQL database adapter
+psycopg_binary
+evidently # An open-source framework to evaluate, test and monitor ML models in production.
+pandas
+numpy
+scikit-learn
+jupyter
+#+end_src
+
+docker-compose: (with two networks: back-tier and front-tier)
+- postgres (back-tier)
+- adminer - phpMinAdmin
+- grafana/grafana
+
+
+evidently - best practices for monitoring https://www.evidentlyai.com/
+- testsuite - number of test - successed/failed -> details. https://www.youtube.com/watch?v=sNSk3ojISh8
+- number of drifted columns (trashold), Data drift - Wasserstein distance; missing values  https://www.youtube.com/watch?v=kP3lzh_HfWY
+
+* 5: Monitoring - homework
+** 1 What is the shape of the downloaded data? How many rows are there?
+
+baseline_model_nyc_taxi_data.ipynb
+
+March 2024 Green Taxi https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+57457
+
+** 2. Metric
+
+What metric did you choose?
+ColumnSummaryMetric(column_name='fare_amount')
+
+#+begin_src python :results none :exports code :eval no
+report = Report(metrics=[
+    ColumnDriftMetric(column_name='prediction'),
+    DatasetDriftMetric(),
+    DatasetMissingValuesMetric()
+]
+)
+#+end_src
+
+#+begin_src json
+"metric": "ColumnDriftMetric",
+   "result": {
+      ....
+   }
+"metric": "DatasetDriftMetric",
+   "result": {"drift_share": 0.5,  "number_of_drifted_columns": 0,}
+
+"metric": "DatasetMissingValuesMetric",
+   "result": { number of missing values per column       }
+
+#+end_src
+** 3. Monitoring
+What is the maximum value of metric `quantile = 0.5` on the `"fare_amount"` column during March 2024 (calculated daily)?
+
+: df['day'] = df.lpep_pick.dt.day
+: df.groupby('day')['fare_amount'].quantile([0.5]).max()
+
+14.2
+
+** 4. Dashboard
+
+project_folder/dashboards`  (05-monitoring/dashboards)
