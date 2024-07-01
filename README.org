@@ -1,4 +1,4 @@
-;-*- mode: Org; fill-column: 110;-*-
+;-*- mode: Org; fill-column: 100;-*-
 
 slack: https://app.slack.com/client/T01ATQK62F8/C02R98X7DS9
 
@@ -586,6 +586,9 @@ tools:
 - mlflow - used for model loading
 - prefect
 ** TODO 4.6 MLOps Zoomcamp 4.6 - Batch scoring with Mage
+** AWS streaming
+- https://github.com/DataTalksClub/mlops-zoomcamp/tree/main/04-deployment/streaming
+- https://github.com/Muhongfan/MLops/tree/main/04-deployment/streaming
 * 5: Monitoring
 tools:
 - simple: Prometheus/Grafana
@@ -667,3 +670,65 @@ What is the maximum value of metric `quantile = 0.5` on the `"fare_amount"` colu
 ** 4. Dashboard
 
 project_folder/dashboards`  (05-monitoring/dashboards)
+* 6: Best practices
+- https://github.com/Muhongfan/MLops/blob/main/04-deployment/streaming/lambda_function.py
+- [[../mlops-zoomcamp/04-deployment/streaming/lambda_function.py]]
+- [[../mlops-zoomcamp/04-deployment/streaming/README.md]]
+** Testing Python code with pytest
+in 04 we used *test_docker.py* to test service. Now we use pytest *tests/model_test.py* for test
+ before building docker.
+
+: pipenv run pytest tests/
+
+tested:
+1) base64_decode - input decoder
+2) prepare_features
+3) ModelService with mock-model
+4) lambda_handler with mock-model
+
+Finally execution path: lambda_function.py.lambda_handler()->model.init().lambda_handler(event)
+ output Dict and call callback with Dict
+
+ModelService incapsulate: prepare, predict, call “callbacks”.
+** Integration tests with docker-compose
+Before: We run code with docker-compose.yaml, query localhost:8080 and do DeepDiff.
+
+#+begin_src python :results none :exports code :eval no
+diff = DeepDiff(actual_response, expected_response, significant_digits=1)
+print(f'diff={diff}')
+
+assert 'type_changes' not in diff
+assert 'values_changed' not in diff
+#+end_src
+
+Now: test_docker.py executed by *run.sh* which:
+1) set +e - if any command return non zero code - terminate entire script
+2) build Dockerfile and set name as ~$(date ...)~
+3) docker-compose up -d ; sleep 5
+4) pipenv run python test_docker.py
+5) following:
+6) docker-compose down
+#+begin_src bash :eval no :exports code :results none
+ERROR_CODE=$?
+
+if [ ${ERROR_CODE} != 0 ]; then
+    docker-compose logs
+    docker-compose down
+    exit ${ERROR_CODE}
+fi
+#+end_src
+
+** Testing cloud services with LocalStack
+LocalStack run your AWS applications or Lambdas entirely on your local machine without connecting to
+ a remote cloud provider.
+- AWS Lambda, S3, Dynamodb, Kinesis, SQS, SNS, and many more
+
+to docker-compose.yaml we added image: localstack/localstack
+
+
+*test_kinesis.py*
+
+
+to *run.sh* we add pipenv run python test_kinesis.py
+
+make run_all_tests
