@@ -1,4 +1,4 @@
-;-*- mode: Org; fill-column: 100;-*-
+# ;-*- mode: Org; fill-column: 100;-*-
 
 slack: https://app.slack.com/client/T01ATQK62F8/C02R98X7DS9
 
