@@ -732,3 +732,90 @@ to docker-compose.yaml we added image: localstack/localstack
 to *run.sh* we add pipenv run python test_kinesis.py
 
 make run_all_tests
+** linting and formatting, pre-commit hooks, Makefiles, stag prod, IaC, Github Actions
+PEP 8 style guide
+
+Linting - find errors: Logical, Stylistic, Analytical.
+- Logical:
+  - PyFlakes - lightweight
+  - MyPy - type checker
+  - Pyright - lightweight type checker and linter by Microsoft
+- Stylistic:
+  - Pylint - syntax and style, configurable
+  - Flake8 -  logical and stylistic
+  - pycodestyle - official linter
+- Analytical:
+  - Mccabe
+  - isort - sorting imports
+  - Safety - security vulnerabilities
+  - Bandit - security issues
+  - Xenon - based on Radon
+  - Radon - monitor code complexity.
+
+Formatting - check for style guide (PEP 8).
+- Black - strict applies a consistent, PEP8
+- yapf - multiple styles, including PEP8, Google, and Facebook
+
+
+Ways to disable wanrings:
+- .pylintrc - [MESSAGE CONTROL] disable warnings for cases
+- first line after function definition: # pylint: disable=unused-arguments
+- first line of file
+
+$ pylint --recursive=y .
+
+$ black --diff .
+
+$ black --skip-string-normalization (quotes and prefixes)
+
+If last element of list have “,” black will not make one line of them
+
+$ isort --diff .
+
+We add “back” and “isort” to pyproject.toml.
+
+Finally:
+: isort .
+: black .
+: pylint --recursive=y .
+: pytest tests/
+:
+** Git pre-commit hooks
+https://github.com/pre-commit/pre-commit
+- pip install pre-commit
+- pipenv install --dev pre-commit
+- git init
+- pre-commit sample-config > .pre-commit-config.yaml
+- pre-commit install
+
+by default:
+- Trim trailing white space
+- Fix end of files
+- Check Yaml
+- Check for added large files
+
+*.pre-commit-config.yaml* consist of 1) repo link: local or github  2) rev
+
+to run py file:
+- repo: local
+
+
+Hooks:
+- pre-commit :: Used for enforcing code *formatting* and running *tests*.
+  - no arguments, non-0 return abort commit.
+  - built-in:
+- pre-push :: Used for validating pushes and running additional tests.
+- post-commit :: Used for updating metadata and clear files.
+- post-checkout :: Used for setting up the working directory.
+- post-merge :: Used for updating metadata and performing post-merge actions.
+Less Popular Hooks:
+- commit-msg :: Used for validating commit messages.
+- prepare-commit-msg :: after the pre-commit hook to populate the text editor with a commit message
+ with generated.
+- pre-rebase :: Used for halting the rebase process if necessary.
+- post-rewrite :: Used for updating metadata or performing post-rewrite actions.
+- pre-receive :: Used for validating pushes on the server-side.
+- update :: Used for updating metadata or performing post-push actions on the server-side.
+- post-receive :: Used for sending notifications or performing post-push actions on the server-side.
+** Makefile
+We use Makefile for: test, quality_checks, build, integration_test, publish, “setup” development environment and setup pre-commit hook

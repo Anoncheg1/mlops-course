@@ -1,0 +1,17 @@
+; -*- mode: Org -*-
+* asd
+#+begin_src python :results output :exports both :dir "/ssh:jino:"
+import sys
+import pickle
+import pandas as pd
+import numpy as np
+import sklearn
+
+import pandas as pd
+print()
+print(pd.__version__)
+#+end_src
+#+begin_src python :results output :exports both
+import
+print("asd")
+#+end_src

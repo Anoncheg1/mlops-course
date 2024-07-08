@@ -1,0 +1,218 @@
+#+begin_src python :results output :exports both :session s1
+!pip install pandas pyarrow==16.1.0 fastparquet==2024.2.0 scikit-learn==1.5.0 --user
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Requirement already satisfied: pandas in ./.local/lib/python3.9/site-packages (2.2.2)
+
+Collecting pyarrow==16.1.0
+
+  Downloading pyarrow-16.1.0-cp39-cp39-manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+
+Collecting fastparquet==2024.2.0
+
+  Downloading fastparquet-2024.2.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+
+Requirement already satisfied: scikit-learn==1.5.0 in ./.local/lib/python3.9/site-packages (1.5.0)
+
+Requirement already satisfied: numpy>=1.16.6 in ./.local/lib/python3.9/site-packages (from pyarrow==16.1.0) (1.26.4)
+
+Collecting cramjam>=2.3 (from fastparquet==2024.2.0)
+
+  Downloading cramjam-2.8.3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.2 kB)
+
+Collecting fsspec (from fastparquet==2024.2.0)
+
+  Downloading fsspec-2024.6.0-py3-none-any.whl.metadata (11 kB)
+
+Requirement already satisfied: packaging in ./.local/lib/python3.9/site-packages (from fastparquet==2024.2.0) (24.1)
+
+Requirement already satisfied: scipy>=1.6.0 in ./.local/lib/python3.9/site-packages (from scikit-learn==1.5.0) (1.13.1)
+
+Requirement already satisfied: joblib>=1.2.0 in ./.local/lib/python3.9/site-packages (from scikit-learn==1.5.0) (1.4.2)
+
+Requirement already satisfied: threadpoolctl>=3.1.0 in ./.local/lib/python3.9/site-packages (from scikit-learn==1.5.0) (3.5.0)
+
+Requirement already satisfied: python-dateutil>=2.8.2 in ./.local/lib/python3.9/site-packages (from pandas) (2.9.0.post0)
+
+Requirement already satisfied: pytz>=2020.1 in ./.local/lib/python3.9/site-packages (from pandas) (2024.1)
+
+Requirement already satisfied: tzdata>=2022.7 in ./.local/lib/python3.9/site-packages (from pandas) (2024.1)
+
+Requirement already satisfied: six>=1.5 in ./.local/lib/python3.9/site-packages (from python-dateutil>=2.8.2->pandas) (1.16.0)
+
+Downloading pyarrow-16.1.0-cp39-cp39-manylinux_2_28_x86_64.whl (40.8 MB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m40.8/40.8 MB[0m [31m7.9 MB/s[0m eta [36m0:00:00[0m00:01[0m00:01[0mm
+
+[?25hDownloading fastparquet-2024.2.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.7 MB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m1.7/1.7 MB[0m [31m8.5 MB/s[0m eta [36m0:00:00[0m00:01[0m00:01[0mm
+
+[?25hDownloading cramjam-2.8.3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m2.0/2.0 MB[0m [31m9.2 MB/s[0m eta [36m0:00:00[0mta [36m0:00:01[0m
+
+[?25hDownloading fsspec-2024.6.0-py3-none-any.whl (176 kB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m176.9/176.9 kB[0m [31m6.5 MB/s[0m eta [36m0:00:00[0m
+
+[?25hInstalling collected packages: pyarrow, fsspec, cramjam, fastparquet
+
+Successfully installed cramjam-2.8.3 fastparquet-2024.2.0 fsspec-2024.6.0 pyarrow-16.1.0
+
+#+end_example
+
+#+begin_src python :results output :exports both :session s1
+import pickle
+import pandas as pd
+with open('model.bin', 'rb') as f_in:
+    dv, model = pickle.load(f_in)
+
+print("model", model)
+print()
+print("dv", dv)
+#+end_src
+
+#+RESULTS:
+: model LinearRegression()
+: 
+: dv DictVectorizer()
+
+
+#+begin_src python :results output :exports both :session s1
+categorical = ['PULocationID', 'DOLocationID']
+
+def read_data(filename):
+    df = pd.read_parquet(filename)
+    
+    df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+    df['duration'] = df.duration.dt.total_seconds() / 60
+
+    df = df[(df.duration >= 1) & (df.duration <= 60)].copy()
+
+    df[categorical] = df[categorical].fillna(-1).astype('int').astype('str')
+    
+    return df
+
+df = read_data('yellow_tripdata_2023-05.parquet')
+
+dicts = df[categorical].to_dict(orient='records')
+X_val = dv.transform(dicts)
+y_pred = model.predict(X_val)
+print(type(y_pred))
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+import numpy as np
+print(np.mean(y_pred))
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+year = 2023 
+month = 3
+output_file = "a.parquet"
+df['ride_id'] = f'{year:04d}/{month:02d}_' + df.index.astype('str')
+df_result = pd.DataFrame()
+df_result['ride_id'] = df['ride_id']
+df_result['predicted_duration'] = y_pred
+df_result.to_parquet(
+    output_file,
+    engine='pyarrow',
+    compression=None,
+    index=False
+)
+#+end_src
+
+#+begin_src python :results output :exports both :session s1
+# ** 3. Creating the scoring script. Which command you need to execute for that?
+!.local/bin/jupyter nbconvert --to python Untitled.ipynb
+#+end_src
+
+#+RESULTS:
+: [NbConvertApp] Converting notebook Untitled.ipynb to python
+: [NbConvertApp] Writing 1687 bytes to Untitled.py
+
+
+#+begin_src python :results output :exports both :session s1
+# ** 4. Virtual environment. Hash for Scikit-Learn
+!.local/bin/pip3 install pipenv --user
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Collecting pipenv
+
+  Downloading pipenv-2024.0.1-py3-none-any.whl.metadata (19 kB)
+
+Requirement already satisfied: certifi in ./.local/lib/python3.9/site-packages (from pipenv) (2024.6.2)
+
+Collecting setuptools>=67 (from pipenv)
+
+  Downloading setuptools-70.0.0-py3-none-any.whl.metadata (5.9 kB)
+
+Collecting virtualenv>=20.24.2 (from pipenv)
+
+  Downloading virtualenv-20.26.2-py3-none-any.whl.metadata (4.4 kB)
+
+Collecting distlib<1,>=0.3.7 (from virtualenv>=20.24.2->pipenv)
+
+  Downloading distlib-0.3.8-py2.py3-none-any.whl.metadata (5.1 kB)
+
+Collecting filelock<4,>=3.12.2 (from virtualenv>=20.24.2->pipenv)
+
+  Downloading filelock-3.15.1-py3-none-any.whl.metadata (2.8 kB)
+
+Requirement already satisfied: platformdirs<5,>=3.9.1 in ./.local/lib/python3.9/site-packages (from virtualenv>=20.24.2->pipenv) (4.2.2)
+
+Downloading pipenv-2024.0.1-py3-none-any.whl (3.2 MB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m3.2/3.2 MB[0m [31m6.9 MB/s[0m eta [36m0:00:00[0m00:01[0m00:01[0m
+
+[?25hDownloading setuptools-70.0.0-py3-none-any.whl (863 kB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m863.4/863.4 kB[0m [31m8.1 MB/s[0m eta [36m0:00:00[0mta [36m0:00:01[0m
+
+[?25hDownloading virtualenv-20.26.2-py3-none-any.whl (3.9 MB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m3.9/3.9 MB[0m [31m7.8 MB/s[0m eta [36m0:00:00[0m00:01[0m00:01[0mm
+
+[?25hDownloading distlib-0.3.8-py2.py3-none-any.whl (468 kB)
+
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m468.9/468.9 kB[0m [31m7.5 MB/s[0m eta [36m0:00:00[0mta [36m0:00:01[0m
+
+[?25hDownloading filelock-3.15.1-py3-none-any.whl (15 kB)
+
+Installing collected packages: distlib, setuptools, filelock, virtualenv, pipenv
+
+[33m  WARNING: The script virtualenv is installed in '/home/jup/.local/bin' which is not on PATH.
+
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.[0m[33m
+
+[0m[33m  WARNING: The scripts pipenv and pipenv-resolver are installed in '/home/jup/.local/bin' which is not on PATH.
+
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.[0m[33m
+
+[0mSuccessfully installed distlib-0.3.8 filelock-3.15.1 pipenv-2024.0.1 setuptools-70.0.0 virtualenv-20.26.2
+
+#+end_example
+
+#+begin_src python :results output :exports both :session s1
+!.local/bin/pipenv lock
+#+end_src
+
+#+RESULTS:
+: Locking[0m [33m[packages][0m dependencies...[0m
+: [?25lBuilding requirements[33m...[0m
+: [2KResolving dependencies[33m...[0m
+: [2K✔ Success! Locking packages...
+: [2K[32m⠹[0m Locking packages...
+: [1A[2KLocking[0m [33m[dev-packages][0m dependencies...[0m
+: [1mUpdated Pipfile.lock (87d65ea44801266ba51af8fea728adf3fac050fa61a14911d9d7c341cafb5edd)![0m
+
+
+#+begin_src python :results output :exports both :session s1
+
+#+end_src
+
